@@ -8,6 +8,7 @@ declare(strict_types=1);
  */
 namespace OCA\DAV\Search;
 
+use DateTimeImmutable;
 use OCA\DAV\CalDAV\CalDavBackend;
 use OCP\IUser;
 use OCP\Search\IFilteringProvider;
@@ -100,6 +101,20 @@ class EventsSearchProvider extends ACalendarSearchProvider implements IFiltering
 
 		/** @var string|null $term */
 		$term = $query->getFilter('term')?->get();
+
+		$since = $query->getFilter('since')?->get();
+		$until = $query->getFilter('until')?->get();
+
+		if ($since !== null && $until === null) {
+			$until = new DateTimeImmutable('now', new \DateTimeZone('Z'));
+		}
+
+		/** @var array{start: DateTimeImmutable, end: DateTimeImmutable} $timeRange */
+		$timeRange = [
+			'start' => $since,
+			'end' => $until,
+		];
+
 		if ($term === null) {
 			$searchResults = [];
 		} else {
@@ -112,10 +127,7 @@ class EventsSearchProvider extends ACalendarSearchProvider implements IFiltering
 				[
 					'limit' => $query->getLimit(),
 					'offset' => $query->getCursor(),
-					'timerange' => [
-						'start' => $query->getFilter('since')?->get(),
-						'end' => $query->getFilter('until')?->get(),
-					],
+					'timerange' => $timeRange,
 				]
 			);
 		}
@@ -132,10 +144,7 @@ class EventsSearchProvider extends ACalendarSearchProvider implements IFiltering
 				[
 					'limit' => $query->getLimit(),
 					'offset' => $query->getCursor(),
-					'timerange' => [
-						'start' => $query->getFilter('since')?->get(),
-						'end' => $query->getFilter('until')?->get(),
-					],
+					'timerange' => $timeRange,
 				],
 			);
 

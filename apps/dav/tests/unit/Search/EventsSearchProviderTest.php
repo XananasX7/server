@@ -8,6 +8,8 @@ declare(strict_types=1);
  */
 namespace OCA\DAV\Tests\unit\Search;
 
+use OC\Search\Filter\DateTimeFilter;
+use OC\Search\Filter\StringFilter;
 use OCA\DAV\CalDAV\CalDavBackend;
 use OCA\DAV\Search\EventsSearchProvider;
 use OCP\App\IAppManager;
@@ -467,5 +469,140 @@ class EventsSearchProviderTest extends TestCase {
 			[self::$vEvent2, '08-16 09:00 - 08-17 10:00 (My Calendar)', ['{DAV:}displayname' => 'My Calendar']],
 			[self::$vEvent1, '08-16 09:00 - 10:00', ['{DAV:}displayname' => '']],
 		];
+	}
+
+	public function testSearchSince(): void {
+		$user = $this->createMock(IUser::class);
+		$user->method('getUID')->willReturn('john.doe');
+		$query = $this->createMock(ISearchQuery::class);
+		$query->method('getFilter')->willReturnCallback(function ($name) {
+			return match ($name) {
+				'term' => new StringFilter('search term'),
+				'since' => new DateTimeFilter('2026-05-20'),
+				'until' => new DateTimeFilter('2026-06-20'),
+				default => null,
+			};
+		});
+		$query->method('getLimit')->willReturn(5);
+		$query->method('getCursor')->willReturn(20);
+		$this->appManager->expects($this->once())
+			->method('isEnabledForUser')
+			->with('calendar', $user)
+			->willReturn(true);
+		$this->l10n->method('t')->willReturnArgument(0);
+
+		$this->backend->expects($this->once())
+			->method('getCalendarsForUser')
+			->with('principals/users/john.doe')
+			->willReturn([
+				[
+					'id' => 99,
+					'principaluri' => 'principals/users/john.doe',
+					'uri' => 'calendar-uri-99',
+				], [
+					'id' => 123,
+					'principaluri' => 'principals/users/john.doe',
+					'uri' => 'calendar-uri-123',
+				]
+			]);
+		$this->backend->expects($this->once())
+			->method('getSubscriptionsForUser')
+			->with('principals/users/john.doe')
+			->willReturn([
+				[
+					'id' => 1337,
+					'principaluri' => 'principals/users/john.doe',
+					'uri' => 'subscription-uri-1337',
+				]
+			]);
+		$this->backend->expects($this->once())
+			->method('searchPrincipalUri')
+			->with('principals/users/john.doe', 'search term', ['VEVENT'],
+				['SUMMARY', 'LOCATION', 'DESCRIPTION', 'ATTENDEE', 'ORGANIZER', 'CATEGORIES'],
+				['ATTENDEE' => ['CN'], 'ORGANIZER' => ['CN']],
+				['limit' => 5, 'offset' => 20, 'timerange' => ['start' => new \DateTimeImmutable('2026-05-20 00:00:00'), 'end' => new \DateTimeImmutable('2026-06-20 00:00:00')]])
+			->willReturn([
+				[
+					'calendarid' => 99,
+					'calendartype' => CalDavBackend::CALENDAR_TYPE_CALENDAR,
+					'uri' => 'event0.ics',
+					'calendardata' => self::$vEvent0,
+				],
+				[
+					'calendarid' => 123,
+					'calendartype' => CalDavBackend::CALENDAR_TYPE_CALENDAR,
+					'uri' => 'event1.ics',
+					'calendardata' => self::$vEvent1,
+				],
+				[
+					'calendarid' => 1337,
+					'calendartype' => CalDavBackend::CALENDAR_TYPE_SUBSCRIPTION,
+					'uri' => 'event2.ics',
+					'calendardata' => self::$vEvent2,
+				]
+			]);
+
+		$provider = $this->getMockBuilder(EventsSearchProvider::class)
+			->setConstructorArgs([
+				$this->appManager,
+				$this->l10n,
+				$this->urlGenerator,
+				$this->backend,
+			])
+			->onlyMethods([
+				'getDeepLinkToCalendarApp',
+				'generateSubline',
+			])
+			->getMock();
+
+		$provider->expects($this->exactly(3))
+			->method('generateSubline')
+			->willReturn('subline');
+		$provider->expects($this->exactly(3))
+			->method('getDeepLinkToCalendarApp')
+			->willReturnMap([
+				['principals/users/john.doe', 'calendar-uri-99', 'event0.ics', 'deep-link-to-calendar'],
+				['principals/users/john.doe', 'calendar-uri-123', 'event1.ics', 'deep-link-to-calendar'],
+				['principals/users/john.doe', 'subscription-uri-1337', 'event2.ics', 'deep-link-to-calendar']
+			]);
+
+		$actual = $provider->search($user, $query);
+		$data = $actual->jsonSerialize();
+		$this->assertInstanceOf(SearchResult::class, $actual);
+		$this->assertEquals('Events', $data['name']);
+		$this->assertCount(3, $data['entries']);
+		$this->assertTrue($data['isPaginated']);
+		$this->assertEquals(23, $data['cursor']);
+
+		$result0 = $data['entries'][0];
+		$result0Data = $result0->jsonSerialize();
+		$result1 = $data['entries'][1];
+		$result1Data = $result1->jsonSerialize();
+		$result2 = $data['entries'][2];
+		$result2Data = $result2->jsonSerialize();
+
+		$this->assertInstanceOf(SearchResultEntry::class, $result0);
+		$this->assertEmpty($result0Data['thumbnailUrl']);
+		$this->assertEquals('Untitled event', $result0Data['title']);
+		$this->assertEquals('subline', $result0Data['subline']);
+		$this->assertEquals('deep-link-to-calendar', $result0Data['resourceUrl']);
+		$this->assertEquals('icon-calendar-dark', $result0Data['icon']);
+		$this->assertFalse($result0Data['rounded']);
+
+		$this->assertInstanceOf(SearchResultEntry::class, $result1);
+		$this->assertEmpty($result1Data['thumbnailUrl']);
+		$this->assertEquals('Test Europe Berlin', $result1Data['title']);
+		$this->assertEquals('subline', $result1Data['subline']);
+		$this->assertEquals('deep-link-to-calendar', $result1Data['resourceUrl']);
+		$this->assertEquals('icon-calendar-dark', $result1Data['icon']);
+		$this->assertFalse($result1Data['rounded']);
+
+		$this->assertInstanceOf(SearchResultEntry::class, $result2);
+		$this->assertEmpty($result2Data['thumbnailUrl']);
+		$this->assertEquals('Test Europe Berlin', $result2Data['title']);
+		$this->assertEquals('subline', $result2Data['subline']);
+		$this->assertEquals('deep-link-to-calendar', $result2Data['resourceUrl']);
+		$this->assertEquals('icon-calendar-dark', $result2Data['icon']);
+		$this->assertFalse($result2Data['rounded']);
 	}
 }
