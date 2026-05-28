@@ -64,6 +64,13 @@ class SFTP extends Common {
 	}
 
 	public function __construct(array $parameters) {
+		if (!isset($parameters['host'])) {
+			throw new \Exception('Invalid configuration, no host provided');
+		}
+		if (!isset($parameters['user'])) {
+			throw new \Exception('Invalid configuration, no user provided');
+		}
+
 		// Register sftp://
 		Stream::register();
 
