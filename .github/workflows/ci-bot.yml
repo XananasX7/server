@@ -144,9 +144,8 @@ jobs:
                 fix: [
                   'Check the CI log for the specific failing test class and method.',
                   'The Memcached backend lives in `lib/private/Memcache/Memcached.php` — check there for relevant code paths.',
-                  'To reproduce locally you need a Memcached instance on port 11212. With Docker: `docker run -p 11212:11212 memcached memcached -p 11212`',
-                  'Then run the specific test: `NOCOVERAGE=1 ./autotest.sh sqlite lib/Path/To/SpecificTest.php -- --filter testMethodName`',
-                  'If the test passes with SQLite (no Memcached), the failure is cache-specific — look for assumptions about cache availability or cache key formatting in the changed code.',
+                  'Run with Memcached via Docker: `ENABLE_MEMCACHE=memcached USEDOCKER=1 NOCOVERAGE=1 ./autotest.sh sqlite lib/Path/To/SpecificTest.php -- --filter testMethodName`',
+                  'If the test passes without Memcached (plain SQLite), the failure is cache-specific — look for assumptions about cache availability or cache key formatting in the changed code.',
                   'Prerequisites: Docker installed and running, PHP in your PATH, and `composer install` run from the server repository root at least once.',
                 ],
               },
@@ -163,9 +162,10 @@ jobs:
                 purpose: 'Runs PHPUnit tests with an S3-compatible object store (MinIO) as the primary storage backend instead of the local filesystem.',
                 fix: [
                   'Check the CI log for the specific failing test class and method.',
-                  'This setup is not reproducible via `autotest.sh` (it only supports local and Swift storage). The relevant code lives in `lib/private/Files/ObjectStore/`.',
-                  'Start by running the failing test with local storage: `NOCOVERAGE=1 ./autotest.sh sqlite lib/Path/To/SpecificTest.php -- --filter testMethodName`',
-                  'If SQLite passes, the failure is object-store-specific — look for code that uses direct filesystem paths (e.g. `fopen`, `file_get_contents`) instead of the storage abstraction APIs (`ISimpleStorage`, `ObjectStoreStorage`).',
+                  'The relevant code lives in `lib/private/Files/ObjectStore/`.',
+                  'Run locally with MinIO via Docker: `PRIMARY_STORAGE_CONFIG=s3 USEDOCKER=1 NOCOVERAGE=1 ./autotest.sh sqlite lib/Path/To/SpecificTest.php -- --filter testMethodName`',
+                  'If the test passes with plain SQLite (`NOCOVERAGE=1 ./autotest.sh sqlite ...`), the failure is object-store-specific — look for code that uses direct filesystem paths (`fopen`, `file_get_contents`) instead of the storage abstraction APIs (`ISimpleStorage`, `ObjectStoreStorage`).',
+                  'Prerequisites: Docker installed and running, PHP in your PATH, and `composer install` run from the server repository root at least once.',
                 ],
               },
               'PHPUnit files_external generic': {
@@ -185,9 +185,7 @@ jobs:
                 fix: [
                   'Check the CI log for the specific failing test and which FTP daemon was in use.',
                   'The relevant storage code is in `apps/files_external/lib/Storage/FTP.php`.',
-                  'To reproduce locally, spin up an FTP container — for example with pure-ftpd:',
-                  '`docker run -d --net host -e "PUBLICHOST=localhost" -e FTP_USER_NAME=test -e FTP_USER_PASS=test -e FTP_USER_HOME=/home/test stilliard/pure-ftpd`',
-                  'Then run the specific test: `NOCOVERAGE=1 ./autotest.sh sqlite apps/files_external/tests/`',
+                  'Run locally with Docker (sets up FTP and Nextcloud automatically): `EXTERNAL_STORAGE=ftp ./autotest.sh`',
                   'Prerequisites: Docker installed and running, PHP in your PATH, and `composer install` run from the server repository root at least once.',
                 ],
               },
@@ -198,9 +196,7 @@ jobs:
                 fix: [
                   'Check the CI log for the specific failing test.',
                   'The relevant storage code is in `apps/files_external/lib/Storage/AmazonS3.php`.',
-                  'To reproduce locally, spin up LocalStack (an S3 emulator):',
-                  '`docker run -d -e SERVICES=s3 -p 4566:4566 localstack/localstack`',
-                  'Then configure the external storage to point at `http://localhost:4566` and run the tests.',
+                  'Run locally with Docker (sets up LocalStack and Nextcloud automatically): `EXTERNAL_STORAGE=amazons3 ./autotest.sh`',
                   'Prerequisites: Docker installed and running, PHP in your PATH, and `composer install` run from the server repository root at least once.',
                 ],
               },
@@ -211,8 +207,8 @@ jobs:
                 fix: [
                   'Check the CI log for the specific failing test.',
                   'The relevant storage code is in `apps/files_external/lib/Storage/SFTP.php`.',
-                  'To reproduce locally, you need an OpenSSH server with sFTP enabled. On most Linux systems: `sudo apt install openssh-server` and ensure `Subsystem sftp /usr/lib/openssh/sftp-server` is in `/etc/ssh/sshd_config`.',
-                  'Prerequisites: PHP in your PATH, OpenSSH server installed and running, and `composer install` run from the server repository root at least once.',
+                  'Run locally with Docker (sets up an sFTP server and Nextcloud automatically): `EXTERNAL_STORAGE=sftp ./autotest.sh`',
+                  'Prerequisites: Docker installed and running, PHP in your PATH, and `composer install` run from the server repository root at least once.',
                 ],
               },
               'PHPUnit files_external SMB': {
@@ -222,8 +218,7 @@ jobs:
                 fix: [
                   'Check the CI log for the specific failing test.',
                   'The relevant storage code is in `apps/files_external/lib/Storage/SMB.php` and surrounding files.',
-                  'To reproduce locally, spin up a Samba container:',
-                  '`docker run -d -e ACCOUNT_test=test -e UID_test=1000 -e \'SAMBA_VOLUME_CONFIG_test=[public]; path=/tmp; valid users = test; guest ok = no; read only = no; browseable = yes\' -p 445:445 ghcr.io/servercontainers/samba:smbd-only-a3.18.0-s4.18.2-r0`',
+                  'Run locally with Docker (sets up Samba and Nextcloud automatically): `EXTERNAL_STORAGE=smb ./autotest.sh`',
                   'Prerequisites: Docker installed and running, PHP in your PATH, and `composer install` run from the server repository root at least once.',
                 ],
               },
@@ -234,9 +229,7 @@ jobs:
                 fix: [
                   'Check the CI log for the specific failing test.',
                   'The relevant storage code is in `apps/files_external/lib/Storage/DAV.php`.',
-                  'To reproduce locally, spin up a WebDAV-enabled Apache container:',
-                  '`docker run -d -p 8081:80 ghcr.io/nextcloud/continuous-integration-webdav-apache:latest`',
-                  'Then configure the external storage to point at `http://localhost:8081` and run the tests.',
+                  'Run locally with Docker (sets up an Apache WebDAV server and Nextcloud automatically): `EXTERNAL_STORAGE=webdav ./autotest.sh`',
                   'Prerequisites: Docker installed and running, PHP in your PATH, and `composer install` run from the server repository root at least once.',
                 ],
               },
@@ -258,9 +251,8 @@ jobs:
                 fix: [
                   'Check the CI log for the failing test.',
                   'The relevant code lives in `lib/private/Files/ObjectStore/S3.php` and `lib/private/Files/ObjectStore/S3ConnectionTrait.php`.',
-                  'To reproduce locally, spin up MinIO (an S3-compatible server):',
-                  '`docker run -d -e MINIO_ROOT_USER=nextcloud -e MINIO_ROOT_PASSWORD=nextcloud-secret -e MINIO_DEFAULT_BUCKETS=nextcloud -p 9000:9000 bitnami/minio`',
-                  'Prerequisites: Docker installed and running.',
+                  'Run the affected test locally with MinIO via Docker: `PRIMARY_STORAGE_CONFIG=s3 USEDOCKER=1 NOCOVERAGE=1 ./autotest.sh sqlite lib/Path/To/SpecificTest.php`',
+                  'Prerequisites: Docker installed and running, PHP in your PATH, and `composer install` run from the server repository root at least once.',
                 ],
               },
               'Object storage azure': {
@@ -270,9 +262,8 @@ jobs:
                 fix: [
                   'Check the CI log for the failing test.',
                   'The relevant code lives in `lib/private/Files/ObjectStore/Azure.php`.',
-                  'To reproduce locally, spin up Azurite (Microsoft\'s Azure Storage emulator):',
-                  '`docker run -d -e AZURITE_ACCOUNTS=nextcloud:bmV4dGNsb3Vk -p 10000:10000 mcr.microsoft.com/azure-storage/azurite`',
-                  'Prerequisites: Docker installed and running.',
+                  'Run the affected test locally with Azurite via Docker: `PRIMARY_STORAGE_CONFIG=azure USEDOCKER=1 NOCOVERAGE=1 ./autotest.sh sqlite lib/Path/To/SpecificTest.php`',
+                  'Prerequisites: Docker installed and running, PHP in your PATH, and `composer install` run from the server repository root at least once.',
                 ],
               },
               'Object storage Swift': {
