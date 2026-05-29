@@ -228,6 +228,10 @@ function execute_external_tests {
 			echo "          sudo apt install smbclient" >&2
 			exit 1
 		fi
+		if ! which smbclient > /dev/null 2>&1; then
+			echo "[WARNING] The 'smbclient' binary is not installed — notify tests will be skipped." >&2
+			echo "          Install with: sudo apt install smbclient" >&2
+		fi
 	fi
 
 	git checkout tests/data
@@ -304,6 +308,7 @@ function execute_external_tests {
 			exit 1
 		fi
 		echo "SMB is up."
+		sleep 5
 		echo "<?php return ['run' => true, 'host' => 'localhost', 'user' => 'test', 'password' => 'test', 'root' => '', 'share' => 'public'];" \
 			> apps/files_external/tests/config.smb.php
 		TEST_FILE="apps/files_external/tests/Storage/SmbTest.php"
@@ -329,13 +334,25 @@ function execute_external_tests {
 		echo "Fire up the LocalStack docker (S3 emulator)"
 		DOCKER_SERVICE_CONTAINER_ID=$(docker run -d \
 			-e SERVICES=s3 \
+			-e DEBUG=1 \
 			-p 4566:4566 \
-			localstack/localstack)
+			"localstack/localstack@sha256:9d4253786e0effe974d77fe3c390358391a56090a4fff83b4600d8a64404d95d")
 		echo "Waiting for LocalStack initialisation ..."
 		if ! apps/files_external/tests/env/wait-for-connection localhost 4566 60; then
 			echo "[ERROR] Waited 60 seconds, no LocalStack response" >&2
 			exit 1
 		fi
+		# wait-for-connection only checks TCP; poll the health endpoint until S3 is running
+		for i in $(seq 1 30); do
+			if curl -sf http://localhost:4566/_localstack/health 2>/dev/null | grep -qE '"s3": "(running|available)"'; then
+				break
+			fi
+			sleep 1
+			if [ "$i" -eq 30 ]; then
+				echo "[ERROR] LocalStack S3 service did not become ready in time" >&2
+				exit 1
+			fi
+		done
 		echo "LocalStack is up."
 		echo "<?php return ['run' => true, 'localstack' => true, 'key' => 'ignored', 'secret' => 'ignored', 'bucket' => 'bucket', 'hostname' => 'localhost', 'port' => 4566, 'use_ssl' => false, 'autocreate' => true, 'use_path_style' => true];" \
 			> apps/files_external/tests/config.amazons3.php

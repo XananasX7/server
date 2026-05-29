@@ -144,9 +144,9 @@ jobs:
                 fix: [
                   'Check the CI log for the specific failing test class and method.',
                   'The Memcached backend lives in `lib/private/Memcache/Memcached.php` — check there for relevant code paths.',
-                  'Run with Memcached via Docker: `ENABLE_MEMCACHE=memcached USEDOCKER=1 NOCOVERAGE=1 ./autotest.sh sqlite lib/Path/To/SpecificTest.php -- --filter testMethodName`',
-                  'If the test passes without Memcached (plain SQLite), the failure is cache-specific — look for assumptions about cache availability or cache key formatting in the changed code.',
-                  'Prerequisites: Docker installed and running, PHP in your PATH, and `composer install` run from the server repository root at least once.',
+                  'Run with Memcached via Docker (spins up a Memcached container automatically): `ENABLE_MEMCACHE=memcached USEDOCKER=1 NOCOVERAGE=1 ./autotest.sh sqlite lib/Path/To/SpecificTest.php -- --filter testMethodName`',
+                  'If the test passes without Memcached (plain SQLite: `NOCOVERAGE=1 ./autotest.sh sqlite ...`), the failure is cache-specific — look for assumptions about cache availability or cache key formatting in the changed code.',
+                  'Prerequisites: Docker installed and running, PHP `memcached` extension loaded (`php -m | grep memcached`; install with `sudo apt install php-memcached`), PHP in your PATH, and `composer install` run from the server repository root at least once.',
                 ],
               },
               'PHPUnit sharding': {
@@ -163,7 +163,8 @@ jobs:
                 fix: [
                   'Check the CI log for the specific failing test class and method.',
                   'The relevant code lives in `lib/private/Files/ObjectStore/`.',
-                  'Run locally with MinIO via Docker: `PRIMARY_STORAGE_CONFIG=s3 USEDOCKER=1 NOCOVERAGE=1 ./autotest.sh sqlite lib/Path/To/SpecificTest.php -- --filter testMethodName`',
+                  'Run locally with MinIO via Docker (spins up MinIO and installs Nextcloud automatically): `PRIMARY_STORAGE_CONFIG=s3 USEDOCKER=1 NOCOVERAGE=1 ./autotest.sh sqlite lib/Path/To/SpecificTest.php -- --filter testMethodName`',
+                  'Or with Azurite (Azure Blob emulator): `PRIMARY_STORAGE_CONFIG=azure USEDOCKER=1 NOCOVERAGE=1 ./autotest.sh sqlite lib/Path/To/SpecificTest.php`',
                   'If the test passes with plain SQLite (`NOCOVERAGE=1 ./autotest.sh sqlite ...`), the failure is object-store-specific — look for code that uses direct filesystem paths (`fopen`, `file_get_contents`) instead of the storage abstraction APIs (`ISimpleStorage`, `ObjectStoreStorage`).',
                   'Prerequisites: Docker installed and running, PHP in your PATH, and `composer install` run from the server repository root at least once.',
                 ],
@@ -185,7 +186,7 @@ jobs:
                 fix: [
                   'Check the CI log for the specific failing test and which FTP daemon was in use.',
                   'The relevant storage code is in `apps/files_external/lib/Storage/FTP.php`.',
-                  'Run locally with Docker (sets up FTP and Nextcloud automatically): `EXTERNAL_STORAGE=ftp ./autotest.sh`',
+                  'Run locally with Docker (sets up FTP and Nextcloud automatically): `EXTERNAL_STORAGE=ftp NOCOVERAGE=1 ./autotest.sh`',
                   'Prerequisites: Docker installed and running, PHP in your PATH, and `composer install` run from the server repository root at least once.',
                 ],
               },
@@ -196,7 +197,7 @@ jobs:
                 fix: [
                   'Check the CI log for the specific failing test.',
                   'The relevant storage code is in `apps/files_external/lib/Storage/AmazonS3.php`.',
-                  'Run locally with Docker (sets up LocalStack and Nextcloud automatically): `EXTERNAL_STORAGE=amazons3 ./autotest.sh`',
+                  'Run locally with Docker (sets up LocalStack and Nextcloud automatically): `EXTERNAL_STORAGE=amazons3 NOCOVERAGE=1 ./autotest.sh`',
                   'Prerequisites: Docker installed and running, PHP in your PATH, and `composer install` run from the server repository root at least once.',
                 ],
               },
@@ -207,7 +208,7 @@ jobs:
                 fix: [
                   'Check the CI log for the specific failing test.',
                   'The relevant storage code is in `apps/files_external/lib/Storage/SFTP.php`.',
-                  'Run locally with Docker (sets up an sFTP server and Nextcloud automatically): `EXTERNAL_STORAGE=sftp ./autotest.sh`',
+                  'Run locally with Docker (sets up an sFTP server and Nextcloud automatically): `EXTERNAL_STORAGE=sftp NOCOVERAGE=1 ./autotest.sh`',
                   'Prerequisites: Docker installed and running, PHP in your PATH, and `composer install` run from the server repository root at least once.',
                 ],
               },
@@ -218,8 +219,8 @@ jobs:
                 fix: [
                   'Check the CI log for the specific failing test.',
                   'The relevant storage code is in `apps/files_external/lib/Storage/SMB.php` and surrounding files.',
-                  'Run locally with Docker (sets up Samba and Nextcloud automatically): `EXTERNAL_STORAGE=smb ./autotest.sh`',
-                  'Prerequisites: Docker installed and running, PHP in your PATH, and `composer install` run from the server repository root at least once.',
+                  'Run locally with Docker (sets up Samba and Nextcloud automatically): `EXTERNAL_STORAGE=smb NOCOVERAGE=1 ./autotest.sh`',
+                  'Prerequisites: Docker installed and running, PHP `smbclient` extension loaded (`php -m | grep smbclient`; install with `sudo apt install php-smbclient`), `smbclient` binary installed (`sudo apt install smbclient`), PHP in your PATH, and `composer install` run from the server repository root at least once.',
                 ],
               },
               'PHPUnit files_external WebDAV': {
@@ -229,7 +230,7 @@ jobs:
                 fix: [
                   'Check the CI log for the specific failing test.',
                   'The relevant storage code is in `apps/files_external/lib/Storage/DAV.php`.',
-                  'Run locally with Docker (sets up an Apache WebDAV server and Nextcloud automatically): `EXTERNAL_STORAGE=webdav ./autotest.sh`',
+                  'Run locally with Docker (sets up an Apache WebDAV server and Nextcloud automatically): `EXTERNAL_STORAGE=webdav NOCOVERAGE=1 ./autotest.sh`',
                   'Prerequisites: Docker installed and running, PHP in your PATH, and `composer install` run from the server repository root at least once.',
                 ],
               },
@@ -286,9 +287,9 @@ jobs:
                 fix: [
                   'Check the CI log for the failing scenario and feature file.',
                   'The relevant code lives in `lib/private/Files/ObjectStore/`.',
-                  'To reproduce locally, spin up MinIO: `docker run -d -e MINIO_ROOT_USER=nextcloud -e MINIO_ROOT_PASSWORD=nextcloud-secret -e MINIO_DEFAULT_BUCKETS=nextcloud -p 9000:9000 bitnami/minio`',
-                  'Then configure Nextcloud to use it as primary storage and run the failing Behat scenario.',
-                  'Prerequisites: Docker installed and running, a fully running Nextcloud instance, and `composer install` run from the server repository root at least once.',
+                  'Spin up MinIO and run the PHPUnit object store tests via autotest.sh: `PRIMARY_STORAGE_CONFIG=s3 USEDOCKER=1 NOCOVERAGE=1 ./autotest.sh sqlite lib/Files/ObjectStore/S3Test.php`',
+                  'For the full Behat scenario, you need a running Nextcloud instance configured with MinIO as primary storage. autotest.sh sets this up automatically for PHPUnit tests but not Behat — run the failing scenario with: `./vendor/bin/behat --config tests/Integration/config/behat.yml path/to/failing.feature`',
+                  'Prerequisites: Docker installed and running, PHP in your PATH, and `composer install` run from the server repository root at least once.',
                 ],
               },
               'Integration sqlite': {
